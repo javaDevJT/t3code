@@ -2,6 +2,7 @@ import * as Equal from "effect/Equal";
 import { msg } from "gt-react";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { m } from "~/i18n/messages";
+import { requestConfirmDialogChoice } from "~/confirmDialog";
 import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
 import { readWorktreeBaseBranch } from "../../worktreeRepositoryChoiceStore";
 import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
@@ -112,6 +113,10 @@ import {
 import { useMultipleModelSend } from "./useMultipleModelSend";
 import type { SideChatMessage } from "./useSideChat";
 import { type ComposerDispatchMode } from "@t3tools/client-runtime/state/composer-dispatch";
+import {
+  canResumePausedGoal,
+  shouldConfirmGoalReplacement,
+} from "@t3tools/client-runtime/state/thread-execution";
 import {
   getUploadedAttachments,
   refreshExpiredAttachmentUploads,
@@ -420,6 +425,37 @@ export function useComposerSend(input: ComposerSendInput) {
     pendingApprovalsRef.current = pendingApprovals;
     respondingRequestIdsRef.current = respondingRequestIds;
   }, [pendingApprovals, respondingRequestIds]);
+
+  const reportDraftChangedBeforeSend = () => {
+    if (currentRouteThreadKeyRef.current !== routeThreadKey || !activeThread) return;
+    setThreadError(
+      activeThread.id,
+      m(msg("Draft changed while preparing this message. Review it and send again.")),
+    );
+  };
+  const waitBeforeSend = async <T>(pending: Promise<T>) => {
+    const finishWatching = watchComposerSendEdits(composerDraftTarget);
+    const fanoutSelectionsAtom = draftFanoutSelectionsAtom(routeThreadKey);
+    const fanoutSelections = appAtomRegistry.get(fanoutSelectionsAtom);
+    sendInFlightRef.current = true;
+    const result = await pending
+      .catch((error: unknown) => {
+        finishWatching();
+        return Promise.reject(error);
+      })
+      .finally(() => {
+        sendInFlightRef.current = false;
+      });
+    const watchedStatus = finishWatching();
+    const draftStatus =
+      watchedStatus === "ready" &&
+      !Equal.equals(fanoutSelections, appAtomRegistry.get(fanoutSelectionsAtom))
+        ? "edited"
+        : watchedStatus;
+    const sameRoute = currentRouteThreadKeyRef.current === routeThreadKey;
+    if (draftStatus === "edited") reportDraftChangedBeforeSend();
+    return { result, draftReady: draftStatus === "ready", sameRoute };
+  };
 
   const onSend = async (
     e?: { preventDefault: () => void },
@@ -825,8 +861,51 @@ export function useComposerSend(input: ComposerSendInput) {
       : promptAtSend;
     const replyTo =
       useComposerDraftStore.getState().getComposerDraft(composerDraftTarget)?.replyTo ?? null;
-    const promptForSend = withReplyReference(draftPrompt, replyTo);
+    let promptForSend = withReplyReference(draftPrompt, replyTo);
     if (warnStrandedThreadContext(promptForSend, composerThreadContexts)) return;
+    const goalCommandText = promptForSend.trim();
+    if (
+      ctxSelectedModelSelection.instanceId === activeThread.providerInstanceId &&
+      shouldConfirmGoalReplacement(
+        {
+          text: goalCommandText,
+          attachments: [
+            ...composerImages,
+            ...composerFiles,
+            ...(queuedRunEdit.editingAttachments ?? []),
+          ],
+        },
+        activeThread.goal?.status,
+      )
+    ) {
+      const resumeCommand = "/goal resume";
+      const confirmation = requestConfirmDialogChoice(
+        [
+          m(msg("Replace the current goal?")),
+          m(
+            msg(
+              "Did you mean to send {command}? This will replace the current goal. To resume a paused goal, use {resumeCommand}.",
+              { command: goalCommandText, resumeCommand },
+            ),
+          ),
+        ].join("\n"),
+        {
+          variant: "destructive",
+          ...(canResumePausedGoal(activeThread.goal?.status, ctxSelectedProvider)
+            ? { alternateLabel: m(msg("Resume goal")) }
+            : {}),
+        },
+      );
+      if (!confirmation) return;
+      const { result: choice, draftReady, sameRoute } = await waitBeforeSend(confirmation);
+      if (choice === "cancel" || !draftReady || (!sameRoute && detachedOverride === undefined))
+        return;
+      if (choice === "alternate") {
+        promptForSend = resumeCommand;
+        setComposerDraftPrompt(composerDraftTarget, resumeCommand);
+        if (sameRoute) promptRef.current = resumeCommand;
+      }
+    }
     if (queuedRunEdit.isEditing) {
       // A queued message stays in its thread, so saving `/side` would send it to main.
       if (!directAnnotation && parseSideChatCommand(promptAtSend)) {
@@ -1793,36 +1872,6 @@ export function useComposerSend(input: ComposerSendInput) {
   };
 
   const onSendLatest = useStableCallback(onSend);
-  const reportDraftChangedBeforeSend = () => {
-    if (currentRouteThreadKeyRef.current !== routeThreadKey || !activeThread) return;
-    setThreadError(
-      activeThread.id,
-      m(msg("Draft changed while preparing this message. Review it and send again.")),
-    );
-  };
-  const waitBeforeSend = async <T>(pending: Promise<T>) => {
-    const finishWatching = watchComposerSendEdits(composerDraftTarget);
-    const fanoutSelectionsAtom = draftFanoutSelectionsAtom(routeThreadKey);
-    const fanoutSelections = appAtomRegistry.get(fanoutSelectionsAtom);
-    sendInFlightRef.current = true;
-    const result = await pending
-      .catch((error: unknown) => {
-        finishWatching();
-        return Promise.reject(error);
-      })
-      .finally(() => {
-        sendInFlightRef.current = false;
-      });
-    const watchedStatus = finishWatching();
-    const draftStatus =
-      watchedStatus === "ready" &&
-      !Equal.equals(fanoutSelections, appAtomRegistry.get(fanoutSelectionsAtom))
-        ? "edited"
-        : watchedStatus;
-    const sameRoute = currentRouteThreadKeyRef.current === routeThreadKey;
-    if (draftStatus === "edited") reportDraftChangedBeforeSend();
-    return { result, draftReady: draftStatus === "ready", sameRoute };
-  };
   const sendWithEnvironmentRefresh = async (...args: Parameters<typeof onSend>) => {
     const refresh =
       args[3] || sendInFlightRef.current || readPendingEnvironmentChange() !== null

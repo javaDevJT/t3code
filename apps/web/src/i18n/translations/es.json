@@ -13038,5 +13038,8 @@
   "95435f0b59cb2193": "Vista previa de audio",
   "4a12506938295127": "Introduce primero {field}.",
   "5807c08e225c6b3d": "Descargar",
-  "0d50b5bfe7151ece": "No se pudo descargar el archivo"
+  "0d50b5bfe7151ece": "No se pudo descargar el archivo",
+  "385170e7cced33d7": "¿Reemplazar el objetivo actual?",
+  "715be2d41b9f1b72": "Reanudar objetivo",
+  "ae026a53469e057d": "¿Querías enviar {command}? Esto reemplazará el objetivo actual. Para reanudar un objetivo en pausa, usa {resumeCommand}."
 }

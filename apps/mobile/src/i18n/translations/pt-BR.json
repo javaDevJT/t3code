@@ -5716,5 +5716,8 @@
   "99451a5d2d40440f": "Retirada por {by}.",
   "3ee30a50b70fffab": "Retirada por {by}: {reason}",
   "201490988858b511": "retirada por {by}",
-  "46d614fa7b4bf1e5": "Execuções de workflow"
+  "46d614fa7b4bf1e5": "Execuções de workflow",
+  "385170e7cced33d7": "Substituir a meta atual?",
+  "7343e9f9512eb7c6": "Substituir meta",
+  "ae026a53469e057d": "Você quis enviar {command}? Isso substituirá a meta atual. Para retomar uma meta pausada, use {resumeCommand}."
 }

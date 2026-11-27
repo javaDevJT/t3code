@@ -5716,5 +5716,8 @@
   "99451a5d2d40440f": "Retirada por {by}.",
   "3ee30a50b70fffab": "Retirada por {by}: {reason}",
   "201490988858b511": "retirada por {by}",
-  "46d614fa7b4bf1e5": "Ejecuciones de flujos de trabajo"
+  "46d614fa7b4bf1e5": "Ejecuciones de flujos de trabajo",
+  "385170e7cced33d7": "¿Reemplazar el objetivo actual?",
+  "7343e9f9512eb7c6": "Reemplazar objetivo",
+  "ae026a53469e057d": "¿Querías enviar {command}? Esto reemplazará el objetivo actual. Para reanudar un objetivo en pausa, usa {resumeCommand}."
 }

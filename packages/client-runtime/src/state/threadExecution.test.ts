@@ -22,6 +22,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { v2Projection } from "./orchestrationV2TestFixtures.ts";
 import {
+  canResumePausedGoal,
   canResumeThread,
   deriveReportedModelSelection,
   deriveLatestThreadRun,
@@ -38,6 +39,7 @@ import {
   presentProviderGoal,
   presentRunStop,
   readSelectedEffortValue,
+  shouldConfirmGoalReplacement,
   threadRuntimeHasInterruptibleRun,
 } from "./threadExecution.ts";
 
@@ -921,6 +923,40 @@ describe("isBackgroundWorkStopPending", () => {
   it("only applies to the thread that sent the Stop", () => {
     expect(isBackgroundWorkStopPending(null, "env:thread", tasks, false)).toBe(false);
     expect(isBackgroundWorkStopPending(sent, "env:other", tasks, false)).toBe(false);
+  });
+});
+
+describe("shouldConfirmGoalReplacement", () => {
+  it.each(["active", "paused"] as const)(
+    "guards a single-word objective for a %s goal",
+    (status) => {
+      expect(shouldConfirmGoalReplacement({ text: "  /goal  resmue  " }, status)).toBe(true);
+    },
+  );
+
+  it.each(["/goal", "/goal edit", "/goal clear", "/goal pause", "/goal RESUME", "/goal fix tests"])(
+    "lets %s through without confirmation",
+    (text) => {
+      expect(shouldConfirmGoalReplacement({ text }, "paused")).toBe(false);
+    },
+  );
+
+  it("lets text with attachments and objectives without a replaceable goal through", () => {
+    expect(shouldConfirmGoalReplacement({ text: "/goal ship", attachments: [{}] }, "active")).toBe(
+      false,
+    );
+    expect(shouldConfirmGoalReplacement({ text: "/goal ship" }, "complete")).toBe(false);
+    expect(shouldConfirmGoalReplacement({ text: "/goal ship" }, undefined)).toBe(false);
+  });
+});
+
+describe("canResumePausedGoal", () => {
+  it("offers the resume shortcut for paused goals on providers with resume support", () => {
+    const codex = ProviderDriverKind.make("codex");
+    expect(canResumePausedGoal("paused", codex)).toBe(true);
+    expect(canResumePausedGoal("active", codex)).toBe(false);
+    expect(canResumePausedGoal("paused", ProviderDriverKind.make("claudeAgent"))).toBe(false);
+    expect(canResumePausedGoal("paused", ProviderDriverKind.make("antigravity"))).toBe(false);
   });
 });
 
