@@ -10,6 +10,7 @@ import {
   isOrchestrationV2WorkActive,
   isProviderNativeSubagentThread,
   latestProviderTurnForAttempt,
+  parseGoalCommand,
   PROVIDER_DISPLAY_NAMES,
   type ModelSelection,
   type ProviderDriverKind,
@@ -884,6 +885,22 @@ function formatGoalTokens(tokens: number): string {
   const thousands = Math.round(tokens / 1_000);
   if (thousands < 1_000) return `${thousands}k`;
   return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+}
+
+export function shouldConfirmGoalReplacement(
+  message: Parameters<typeof parseGoalCommand>[0],
+  status: OrchestrationV2ProviderGoal["status"] | null | undefined,
+): boolean {
+  if (status !== "active" && status !== "paused") return false;
+  const command = parseGoalCommand(message);
+  return command?.type === "set" && !/\s/u.test(command.objective);
+}
+
+export function canResumePausedGoal(
+  status: OrchestrationV2ProviderGoal["status"] | null | undefined,
+  driver: ProviderDriverKind | undefined,
+): boolean {
+  return status === "paused" && driver !== "claudeAgent" && driver !== "antigravity";
 }
 
 export function presentProviderGoal(

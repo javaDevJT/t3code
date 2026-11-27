@@ -96,6 +96,10 @@ import { useComposerTextRole } from "../settings/appearance/useScaledTextRole";
 import type { RemoteClientConnectionState } from "../../lib/connection";
 import { Menu } from "../../components/ui/Menu";
 import {
+  canResumePausedGoal,
+  shouldConfirmGoalReplacement,
+} from "@t3tools/client-runtime/state/thread-execution";
+import {
   composerRunsDraftLocally,
   type ActiveTurnComposerAction,
 } from "@t3tools/client-runtime/state/composer-dispatch";
@@ -299,6 +303,11 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const [previewVideo, setPreviewVideo] = useState<VideoPreviewSource | null>(null);
   const composerOwnerKey = scopedThreadKey(props.environmentId, props.selectedThread.id);
   const composerDraftKey = props.draftKey ?? composerOwnerKey;
+  const composerDraftKeyRef = useRef(composerDraftKey);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- keeps native dialog responses tied to the composer draft on screen
+  useEffect(() => {
+    composerDraftKeyRef.current = composerDraftKey;
+  }, [composerDraftKey]);
   const readResetGeneration = useComposerDraftResetGeneration(composerDraftKey);
   const {
     text: draftMessage,
@@ -564,19 +573,69 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     if (inFlightThreadIdsRef.current.has(threadKey)) return;
     inFlightThreadIdsRef.current.add(threadKey);
     await inputRef.current?.flushPendingInput();
-    const draftAtSend = getComposerDraftSnapshot(composerDraftKey);
+    let draftAtSend = getComposerDraftSnapshot(composerDraftKey);
     const stillSendable = () => {
       const draft = getComposerDraftSnapshot(composerDraftKey);
       return (
         pendingPastedTextAttachmentCountRef.current === 0 &&
         pendingNativeImagePasteCountRef.current === 0 &&
         draft.text === draftAtSend.text &&
+        draft.context === draftAtSend.context &&
+        draft.modelSelection === draftAtSend.modelSelection &&
         draft.attachments.length === draftAtSend.attachments.length &&
         draft.attachments.every(
           (attachment, index) => attachment.id === draftAtSend.attachments[index]?.id,
         )
       );
     };
+    if (
+      currentModelSelection.instanceId === props.selectedThread.providerInstanceId &&
+      shouldConfirmGoalReplacement(
+        {
+          text: draftAtSend.text,
+          attachments: [...draftAtSend.attachments, ...(queuedEdit?.existingAttachments ?? [])],
+        },
+        props.selectedThread.goal?.status,
+      )
+    ) {
+      const canResume = canResumePausedGoal(
+        props.selectedThread.goal?.status,
+        selectedProviderStatus?.driver,
+      );
+      const choice = await new Promise<"cancel" | "replace" | "resume">((resolve) => {
+        const buttons: NonNullable<Parameters<typeof Dialog.alert>[2]> = [
+          { text: gt("Cancel"), style: "cancel", onPress: () => resolve("cancel") },
+          ...(canResume ? [{ text: gt("Resume goal"), onPress: () => resolve("resume") }] : []),
+          {
+            text: gt("Replace goal"),
+            style: "destructive",
+            onPress: () => resolve("replace"),
+          },
+        ];
+        Dialog.alert(
+          gt("Replace the current goal?"),
+          gt(
+            "Did you mean to send {command}? This will replace the current goal. To resume a paused goal, use {resumeCommand}.",
+            { command: draftAtSend.text.trim(), resumeCommand: "/goal resume" },
+          ),
+          buttons,
+          { cancelable: true, onDismiss: () => resolve("cancel") },
+        );
+      });
+      if (
+        choice === "cancel" ||
+        !stillSendable() ||
+        !navigation.isFocused() ||
+        composerDraftKeyRef.current !== composerDraftKey
+      ) {
+        inFlightThreadIdsRef.current.delete(threadKey);
+        return;
+      }
+      if (choice === "resume") {
+        setComposerDraftText(composerDraftKey, "/goal resume");
+        draftAtSend = getComposerDraftSnapshot(composerDraftKey);
+      }
+    }
     const sent = await settlePromise(() => onSendMessage(followUp, stillSendable));
     inFlightThreadIdsRef.current.delete(threadKey);
     if (AsyncResult.isFailure(sent)) {

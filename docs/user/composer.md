@@ -139,6 +139,8 @@ Type `/` for commands or `$` for skills from the selected environment and provid
 
 With Codex, Claude, and OpenCode 2.2.5+, send `/goal <criteria>` (for example, `/goal all tests in packages/api pass`) so the agent keeps working across turns until the goal is met.
 
+If a goal is active or paused, T3 Code asks for confirmation before sending a one-word replacement objective. For a paused goal that supports resuming, choose **Resume goal** in the dialog to continue it.
+
 - `/goal` shows the current goal; `/goal clear` removes it.
 - Codex and OpenCode support `/goal pause` and `/goal resume` (stopping pauses the goal).
 - On Claude, stopping ends the current turn but keeps the goal active for your next message.

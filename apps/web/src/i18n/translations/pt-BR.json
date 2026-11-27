@@ -13043,5 +13043,8 @@
   "95435f0b59cb2193": "Prévia de áudio",
   "4a12506938295127": "Informe primeiro {field}.",
   "5807c08e225c6b3d": "Baixar",
-  "0d50b5bfe7151ece": "Não foi possível baixar o arquivo"
+  "0d50b5bfe7151ece": "Não foi possível baixar o arquivo",
+  "385170e7cced33d7": "Substituir a meta atual?",
+  "715be2d41b9f1b72": "Retomar meta",
+  "ae026a53469e057d": "Você quis enviar {command}? Isso substituirá a meta atual. Para retomar uma meta pausada, use {resumeCommand}."
 }

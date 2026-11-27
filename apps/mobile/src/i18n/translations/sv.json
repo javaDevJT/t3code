@@ -5722,5 +5722,8 @@
   "99451a5d2d40440f": "Återkallad av {by}.",
   "3ee30a50b70fffab": "Återkallad av {by}: {reason}",
   "201490988858b511": "återkallad av {by}",
-  "46d614fa7b4bf1e5": "Arbetsflödeskörningar"
+  "46d614fa7b4bf1e5": "Arbetsflödeskörningar",
+  "385170e7cced33d7": "Ersätta det nuvarande målet?",
+  "7343e9f9512eb7c6": "Ersätt mål",
+  "ae026a53469e057d": "Menade du att skicka {command}? Det här ersätter det nuvarande målet. Använd {resumeCommand} för att återuppta ett pausat mål."
 }

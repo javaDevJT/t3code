@@ -4,8 +4,10 @@ import {
   completeConfirmDialogClose,
   readConfirmDialogState,
   requestConfirmDialog,
+  requestConfirmDialogChoice,
   resetConfirmDialogForTests,
   respondToConfirmDialog,
+  respondToConfirmDialogChoice,
   subscribeConfirmDialogHost,
 } from "./confirmDialog";
 
@@ -62,6 +64,24 @@ describe("confirm dialog coordinator", () => {
 
     await expect(Promise.all([active, queued])).resolves.toEqual([false, false]);
     expect(readConfirmDialogState()).toEqual({ status: "idle" });
+  });
+
+  it("resolves the alternate action only for the dialog that offers it", async () => {
+    const unregister = mountHost();
+    const first = requireConfirmation(requestConfirmDialog("Continue?"));
+    const second = requestConfirmDialogChoice("Replace the goal?", {
+      alternateLabel: "Resume goal",
+    });
+
+    respondToConfirmDialogChoice("alternate");
+    expect(readConfirmDialogState().status).toBe("confirming");
+    respondToConfirmDialog(false);
+    await expect(first).resolves.toBe(false);
+    completeConfirmDialogClose();
+
+    respondToConfirmDialogChoice("alternate");
+    await expect(second).resolves.toBe("alternate");
+    unregister();
   });
 
   it("has no host until one subscribes", () => {

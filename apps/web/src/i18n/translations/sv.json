@@ -13050,5 +13050,8 @@
   "95435f0b59cb2193": "Ljudförhandsvisning",
   "4a12506938295127": "Ange {field} först.",
   "5807c08e225c6b3d": "Ladda ned",
-  "0d50b5bfe7151ece": "Det gick inte att ladda ned filen"
+  "0d50b5bfe7151ece": "Det gick inte att ladda ned filen",
+  "385170e7cced33d7": "Ersätta det nuvarande målet?",
+  "715be2d41b9f1b72": "Återuppta mål",
+  "ae026a53469e057d": "Menade du att skicka {command}? Det här ersätter det nuvarande målet. Använd {resumeCommand} för att återuppta ett pausat mål."
 }
